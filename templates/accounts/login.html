@@ -1,0 +1,22 @@
+{%extends 'base.html' %}
+{% block content %}
+
+    <div class="col-10 col-md-4 mx-auto mt-3">
+        <h1> {{ title }}</h1>
+        {% if description %}
+        <p> {{ description }}</p>
+        {% endif %}
+        
+        {% include "components/forms.html" with form=form btn_label=btn_label %}
+        <div class="my-5">
+        <p>
+            If you don't have an account, register below: 
+        </p>
+
+        <button class="reply-button button " onClick="window.location.href='/register'">Register</button>
+    </div>
+    </div>
+
+
+
+{% endblock content %}

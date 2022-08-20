@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+
+
+{%block head_title%}
+Social Network 
+{%endblock head_title%}
+
+{% block content %}
+    <noscript>You need javascript enabled to run this app</noscript>
+    
+    <div id="socialnetwork"></div>
+
+    <div class="row mb-5 mt-5 content-container d-none">
+        <div class="col-md-4  mx-auto col-10">
+            <form class='form' id="shout-create-form" method="POST" action="/create-shout">
+                {% csrf_token %}
+                <div class="d-none alert alert-danger" id="shout-create-form-error"></div>
+                <input type="hidden" value="/" name="next">
+                <textarea class="form-control" name="content" placeholder="Shout something..." required></textarea>
+                <button type="submit" class="boost-button mb-3 mt-3">Shout</button>
+            </form>
+        </div>
+    </div>
+
+    
+    
+
+        <div class='row d-none' id="shouts">
+            Loading... 
+        </div>
+
+
+    
+
+
+
+<script>
+
+    function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+    const shoutsContainerElement = document.getElementById("shouts"); 
+    const shoutCreateFormElement = document.getElementById("shout-create-form"); 
+
+    shoutCreateFormElement.addEventListener("submit",handleShoutFormSubmit); 
+    function handleShoutFormError(msg,display){
+        let myErrorDiv = document.getElementById("shout-create-form-error")
+        if(display===true){
+            myErrorDiv.innerText = msg; 
+            myErrorDiv.setAttribute("class","d-block alert alert-danger");
+        }else{
+            myErrorDiv.setAttribute("class","d-none alert alert-danger");
+        }
+    }
+
+    function handleShoutFormSubmit(evt){
+        evt.preventDefault(); 
+        const myForm = evt.target; 
+        const myFormData = new FormData(myForm); 
+        const url = myForm.getAttribute("action"); 
+        const method = myForm.getAttribute("method");
+
+        const xhr = new XMLHttpRequest(); 
+        const responseType = 'json'; 
+        xhr.responseType = responseType;
+        xhr.open(method,url); 
+        xhr.setRequestHeader("HTTP_X_REQUEST_WITH", "XMLHttpRequest"); 
+        xhr.setRequestHeader("X-Requested-With","XMLHttpRequest"); 
+        xhr.onload = function(){
+
+            if(xhr.status===201){
+                handleShoutFormError("", false); 
+                const newShout = xhr.response; 
+                const newShoutEl = formatShout(newShout); 
+                const originalHtml = shoutsContainerElement.innerHTML 
+                shoutsContainerElement.innerHTML = newShoutEl + originalHtml; 
+                myForm.reset(); 
+            }else if (xhr.status===400){
+
+                const errorJson = xhr.response; 
+                const contentError = errorJson.content 
+
+                let contentErrorMsg; 
+
+                if(contentError){
+                    contentErrorMsg = contentError[0]; 
+                    if(contentErrorMsg){
+                        handleShoutFormError(contentErrorMsg, true); 
+                    }else{
+                        alert("An error occured. Please try again"); 
+                    }
+                }else{
+                    alert("An error occured. Please try again"); 
+                }
+
+                console.log(errorJson); 
+
+            }else if(xhr.status ===401){
+
+                alert("You must login")
+                window.location.href("/login")
+            
+            }else if(xhr.status ===403){
+
+                alert("You must login")
+                window.location.href("/login")
+            
+            }else if(xhr.status === 500){
+
+                alert("Internal Server Error. Please try again"); 
+
+            }
+            
+             
+            
+        }
+        xhr.onerror = function(){
+            alert("An Error Occurred. Please try again"); 
+        }
+
+        xhr.send(myFormData); 
+         
+    }
+
+
+
+
+    function loadShouts(shoutsElement){
+
+        const xhr = new XMLHttpRequest(); 
+        const method = 'GET'; 
+        const url = "/shouts";
+        const responseType = 'json'; 
+
+        xhr.responseType = responseType; 
+        xhr.open(method, url); 
+        xhr.onload = function() {
+            const serverResponse = xhr.response; 
+            let listedItems = serverResponse; 
+            let shoutStr = ""; 
+
+            listedItems.forEach(item=>{
+                shoutStr += formatShout(item); 
+            })
+
+            
+            
+            shoutsElement.innerHTML = shoutStr; 
+        }
+        xhr.send(); 
+
+    }
+
+    loadShouts(shoutsContainerElement); 
+    
+        
+    function formatShout(shout){
+
+        fromattedShout = "<div class= 'shout col-12 col-md-10 mx-auto mb-4 border rounded py-4 px-3' id='shout-"+shout.id+"'><p> " +shout.content+ "</p><div class='btn-group'>"+
+            likeBtn(shout)+unlikeBtn(shout)+boostBtn(shout)+"</div></div>"; 
+        return fromattedShout
+    }
+
+    function likeBtn(shout){
+        return "<button onclick=handleShoutActionBtn("+shout.id+","+ shout.likes+",'like') class='like-button button'>"+shout.likes+" Likes </button>"; 
+    }
+    function unlikeBtn(shout){
+        return "<button onclick=handleShoutActionBtn("+shout.id+","+ shout.likes+",'unlike') class='unlike-button button'> UnLike </button>"; 
+    }
+    function boostBtn(shout){
+        return "<button onclick=handleShoutActionBtn("+shout.id+","+ shout.likes+",'boost') class='boost-button button'> Boost </button>"; 
+    }
+
+    function handleShoutActionBtn(shout_id,likeCount,action){
+        
+        const url = "/api/shouts/action/";
+        const method = "POST";
+        const data = JSON.stringify({
+            id: shout_id, 
+            action: action
+        });
+        const xhr= new XMLHttpRequest(); 
+        const csrftoken = getCookie('csrftoken'); 
+        xhr.open(method,url); 
+        xhr.setRequestHeader("Content-Type","application/json"); 
+        xhr.setRequestHeader("HTTP_X_REQUEST_WITH", "XMLHttpRequest"); 
+        xhr.setRequestHeader("X-Requested-With","XMLHttpRequest"); 
+        xhr.setRequestHeader("X-CSRFToken",csrftoken)
+        xhr.onload = function (){
+            console.log(xhr.status,xhr.response)
+            loadShouts(shoutsContainerElement); 
+        }
+        xhr.send(data); 
+
+    }
+
+    
+
+
+
+</script>
+{%endblock content %}
